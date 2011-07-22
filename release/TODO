@@ -1,0 +1,35 @@
+
+
+July 2011
+
+1) First and foremost. Set this up for doxygen.
+		(in fact do this for a collection of other programs)
+
+2) Move some code around for better class presentation.
+
+3) Make sure that communication is abstracted more.
+	The hardware is always getting better.
+	So, some serial communication will become outdated.
+
+4) Improve the direction of the application.
+	3D can be done as well.
+	The robot can execute more intelligent plans
+
+5) Expand on the initialization file.
+
+6) Create Documentation for use and development
+
+[Wouldn't it be nice.]
+
+So, although this started with a bad business relationship,
+the bad business did buy motors to get this going.
+The actual cost of apparatus is well within the reach of
+a programmer paid average American salary.
+Sadly bad businesses try not to pay people any money at all.
+And, so, this progammer escaped executive style slavery.
+Fortunately, this programmer was not at the low end of that
+equation, which is rightly called "Human Trafficking".
+Here is another task we should all add:
+
+7) End Human Trafficking.
+

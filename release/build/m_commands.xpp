@@ -1,0 +1,678 @@
+
+
+#include <math.h>
+#include <stdlib.h>
+
+
+
+static inline double
+random_R(unsigned long int limit) {
+	double rnum = drand48();  // number between 0.0 and 1.0;
+	double value = limit*rnum;
+	return(value);
+}
+
+
+// Motion Commands
+
+/// COMMAND,  DESCRIPTION, SAVED IN NON VOLITILE MEMORY, W/R Only, Immediate, Compatability
+
+
+typedef enum {
+	SCL_MOTION,
+	SCL_CONFIG,
+	SCL_IO_COMS,
+	SCL_COMMUNICATION_COMS,
+	SCL_Q_COMMANDS,
+	SCL_DRIVE_COMMANDS,
+	SCL_REGISTER_COMMANDS,
+	SCL_IMMEDIATE_COMMANDS,
+
+	SCL_MAX_TYPE
+} SCL_command_types;
+
+
+
+typedef struct {
+	const char				*_command;
+	const char				*_description;
+	SCL_command_types		_com_type;
+	bool					_NV;
+	bool					_write_only;
+	bool					_read_only;
+	bool					_can_use_this_app;
+} SCL_commnad_descriptor;
+
+
+
+SCL_commnad_descriptor
+motor_commands[] = {
+
+	/// MOTION ... 
+
+	{"AC","Accel Rate",SCL_MOTION,false,false,false,true},
+	{"AM","Accel Max",SCL_MOTION,false,false,false,true},
+
+	{"CJ","Commence Jogging",SCL_MOTION,false,false,false,true},
+	{"DC","Distance for FC, FM, FO, FY",SCL_MOTION,false,false,false,true},
+	{"DE","Decel Rate",SCL_MOTION,false,false,false,true},
+	{"DI","Distance or Position",SCL_MOTION,false,false,false,true},
+	{"EG","Electronic Gearing",SCL_MOTION,false,false,false,true},
+	{"EP","Encoder Position",SCL_MOTION,false,false,false,true},
+
+	{"FC","Feed to Length with Speed Change",SCL_MOTION,false,false,false,true},
+	{"FD","Feed to Double Sensor",SCL_MOTION,false,false,false,true},
+	{"FE","Follow Encoder",SCL_MOTION,false,false,false,true},
+	{"FL","Feed to Length",SCL_MOTION,false,false,false,true},
+	{"FM","Feed to Sensor with Mask Dist",SCL_MOTION,false,false,false,true},
+	{"FO","Feed to Length & Set Output",SCL_MOTION,false,false,false,true},
+	{"FP","Feed to Position",SCL_MOTION,false,false,false,true},
+	{"FS","Feed to Sensor",SCL_MOTION,false,false,false,true},
+	{"FY","Feed to Sensor with Safety Dist",SCL_MOTION,false,false,false,true},
+
+	{"HW","Hand Wheel",SCL_MOTION,false,false,false,true},
+	{"JA","Jog Accel/Decel rate",SCL_MOTION,false,false,false,true},
+	{"JC","Velocity mode second speed",SCL_MOTION,false,false,false,true},
+
+	{"JD","Jog Disable",SCL_MOTION,false,false,false,true},
+	{"JE","Jog Enable",SCL_MOTION,false,false,false,true},
+	{"JL","Jog Decel rate",SCL_MOTION,false,false,false,true},
+	{"JM","Jog Mode",SCL_MOTION,false,false,false,true},
+	{"JS","Jog Speed",SCL_MOTION,false,false,false,true},
+
+	{"SH","Seek Home",SCL_MOTION,false,false,false,true},
+	{"SJ","Stop Jogging",SCL_MOTION,false,false,false,true},
+	{"SM","Stop the Move",SCL_MOTION,false,false,false,false},
+	{"SP","Set Absolute Position",SCL_MOTION,false,false,false,true},
+	{"ST","Stop Motion",SCL_MOTION,false,false,false,true},
+	{"VC","Velocity for Speed Change (FC)",SCL_MOTION,false,false,false,true},
+	{"VE","Velocity Setting (For Feed Com-mands)",SCL_MOTION,false,false,false,true},
+	{"WP","Velocity Max",SCL_MOTION,false,false,false,true},
+	{"WM","Wait on Move",SCL_MOTION,false,false,false,false},
+	{"WM","Wait on Position",SCL_MOTION,false,false,false,false},
+
+	/// CONFIGURATION ...
+	
+	{"BD","Brake Disengage Delay time",SCL_CONFIG,false,false,false,true},
+	{"BE","Brake Engage Delay time",SCL_CONFIG,false,false,false,true},
+	{"CC","Change Current",SCL_CONFIG,false,false,false,true},
+	{"CD","Idle Current Delay",SCL_CONFIG,false,false,false,true},
+	{"CF","Anti-resonance Filter Frequency",SCL_CONFIG,false,false,false,true},
+	{"CG","Anti-resonance Filter Gain",SCL_CONFIG,false,false,false,true},
+	{"CI","Change Idle Current",SCL_CONFIG,false,false,false,true},
+	{"CM","Control mode",SCL_CONFIG,false,false,false,true},
+	{"CP","Change peak current",SCL_CONFIG,false,false,false,false},
+	{"DA","Define Address",SCL_CONFIG,false,false,false,true},
+	{"DL","Define Limits",SCL_CONFIG,false,false,false,true},
+	{"DR","Data Register for Capture",SCL_CONFIG,false,false,false,true},
+	{"ER","Encoder or Resolution",SCL_CONFIG,false,false,false,true},   // Stepper Needs Encoder
+
+	{"HG","4th Harmonic Filter Gain",SCL_CONFIG,false,false,false,true},
+	{"HP","4th Harmonic Filter Phase",SCL_CONFIG,false,false,false,true},
+
+	{"KC","Servo Filter",SCL_CONFIG,false,false,false,false},
+	{"KD","Differential Constant",SCL_CONFIG,false,false,false,false},
+	{"KE","Differential Filter",SCL_CONFIG,false,false,false,false},
+	{"KF","Velocity Feed Forward Constant",SCL_CONFIG,false,false,false,false},
+	{"KI","Integrator Constant",SCL_CONFIG,false,false,false,false},
+	{"KK","Inertia Feed Forward Constant",SCL_CONFIG,false,false,false,false},
+	{"KP","Proportional Constant",SCL_CONFIG,false,false,false,false},
+	{"KV","Velocity Feed Back Constant",SCL_CONFIG,false,false,false,false},
+	{"KW","Velocity Feed Back Filter",SCL_CONFIG,false,false,false,true},
+
+	{"MO","Motion Output",SCL_CONFIG,false,false,false,true},
+
+	{"OF","On Fault",SCL_CONFIG,false,false,false,false},
+	{"OI","On Input",SCL_CONFIG,false,false,false,false},
+	
+	{"PC","Power up Current",SCL_CONFIG,false,false,false,true},
+	{"PF","Position Fault",SCL_CONFIG,false,false,false,true},  // Stepper Needs Encoder
+
+	{"PI","Power up Idle Current",SCL_CONFIG,false,false,false,true},
+	{"PL","In Position Limit",SCL_CONFIG,false,false,false,true},
+	{"PM","Power up Mode",SCL_CONFIG,false,false,false,false},
+	{"PP","Power up peak curren",SCL_CONFIG,false,false,false,true},
+	{"PW","Pass Word",SCL_CONFIG,false,false,false,false},
+	
+	{"SA","Save all NV Parameters",SCL_CONFIG,false,false,false,true},
+	{"SF","Step Filter Frequency",SCL_CONFIG,false,false,false,true},
+	{"SI","Enable Input usage",SCL_CONFIG,false,false,false,true},
+	{"VI","Velocity Mode Integrator Constant",SCL_CONFIG,false,false,false,true},
+	{"VP","Velocity Mode Proportional Constant",SCL_CONFIG,false,false,false,true},
+	{"ZC","Regen Resistor Continuous Wattage",SCL_CONFIG,false,false,false,false},
+	{"ZR","Regen Resistor Value",SCL_CONFIG,false,false,false,false},
+	{"ZT","Regen Resistor Peak Time",SCL_CONFIG,false,false,false,false},
+
+
+	/// I/O COMMANDS
+	
+	{"AD","Analog Deadband",SCL_IO_COMS,false,false,false,true},
+	{"AF","Analog Filter",SCL_IO_COMS,false,false,false,true},
+
+	{"AG","Analog Velocity Gain",SCL_IO_COMS,false,false,false,true},
+	{"AI","Alarm Input usage",SCL_IO_COMS,false,false,false,true},
+	{"AO","Alarm Output usage",SCL_IO_COMS,false,false,false,true},
+	{"AP","Analog Position Gain",SCL_IO_COMS,false,false,false,true},
+	{"AS","Analog Scaling",SCL_IO_COMS,false,false,false,true},
+	{"AT","Analog Threshold",SCL_IO_COMS,false,false,false,true},
+	{"AV","Analog Offset",SCL_IO_COMS,false,false,false,true},
+	{"AZ","Analog Zero (Auto Zero)",SCL_IO_COMS,false,false,false,true},
+	{"BD","Brake Disengage Delay time",SCL_IO_COMS,false,false,false,true},
+	{"BE","Brake Engage Delay time",SCL_IO_COMS,false,false,false,true},
+	{"BO","Brake Output usage",SCL_IO_COMS,false,false,false,true},
+	{"DL","Define Limits",SCL_IO_COMS,false,false,false,true},
+	{"FI","Filter Input",SCL_IO_COMS,false,false,false,true},
+	{"IH","Immediate High Output",SCL_IO_COMS,false,false,false,true},
+	{"IL","Immediate Low Output",SCL_IO_COMS,false,false,false,true},
+	{"IS","Input Status request",SCL_IO_COMS,false,false,false,true},
+	{"MO","Motion Output",SCL_IO_COMS,false,false,false,true},
+
+	{"SI","Enable Input usage",SCL_IO_COMS,false,false,false,true},
+	{"SO","Set Output",SCL_IO_COMS,false,false,false,true},
+
+	{"TI","Test Input",SCL_IO_COMS,false,false,false,false},
+	{"WI","Wait on Input",SCL_IO_COMS,false,false,false,true},
+
+	{"FC","SYMB",SCL_IO_COMS,false,false,false,true},
+	{"FC","SYMB",SCL_IO_COMS,false,false,false,true},
+
+
+	/// Communication Commands
+
+	{"BR","Baud Rate",SCL_COMMUNICATION_COMS,false,false,false,true},
+	{"PB","Power up Baud Rate",SCL_COMMUNICATION_COMS,false,false,false,true},
+	{"PR","Protocol",SCL_COMMUNICATION_COMS,false,false,false,true},
+	{"TD","Transmit Delay",SCL_COMMUNICATION_COMS,false,false,false,true},
+	{"FC","SYMB",SCL_COMMUNICATION_COMS,false,false,false,true},
+
+	/// Q Commands, commands for Q systems.  (Not previously listed
+
+	{"MT","Multi-Tasking",SCL_Q_COMMANDS,false,false,false,false},
+	{"PS","Pause",SCL_Q_COMMANDS,false,false,false,false},
+
+	{"QC","Queue Call",SCL_Q_COMMANDS,false,false,false,false},
+	{"QD","Queue Delete",SCL_Q_COMMANDS,false,false,false,false},
+	{"QG","Queue Goto",SCL_Q_COMMANDS,false,false,false,false},
+	{"QJ","Queue Jump",SCL_Q_COMMANDS,false,false,false,false},
+	{"QK","Queue Kill",SCL_Q_COMMANDS,false,false,false,false},
+	{"QR","Queue Repeat",SCL_Q_COMMANDS,false,false,false,false},
+	{"QX","Queue Load & Execute",SCL_Q_COMMANDS,false,false,false,false},
+	{"NO","No Operation",SCL_Q_COMMANDS,false,false,false,false},
+	{"SM","Stop Move",SCL_Q_COMMANDS,false,false,false,false},
+	{"SS","Send String",SCL_Q_COMMANDS,false,false,false,false},
+	{"WD","Wait Delay using Data Register",SCL_Q_COMMANDS,false,false,false,false},
+	{"WI","Wait for Inpu",SCL_Q_COMMANDS,false,false,false,false},
+	{"WM","Wait for Move to complete",SCL_Q_COMMANDS,false,false,false,false},
+	{"WP","Wait for Position in complex move",SCL_Q_COMMANDS,false,false,false,false},
+
+	/// Drive Commands
+	
+	{"AL","Alarm Code",SCL_DRIVE_COMMANDS,false,false,false,true},
+	{"AX","Alarm Reset (BUFFERED)",SCL_DRIVE_COMMANDS,false,false,false,true},
+	{"EP","Encoder Position",SCL_DRIVE_COMMANDS,false,false,false,true},
+	{"MD","Motor Disable",SCL_DRIVE_COMMANDS,false,false,false,true},
+	{"ME","Motor Enable",SCL_DRIVE_COMMANDS,false,false,false,true},
+	{"MN","Model Number",SCL_DRIVE_COMMANDS,false,false,false,true},
+	{"SA","Save Non-Volatile Parameters",SCL_DRIVE_COMMANDS,false,false,false,true},
+	{"SC","Status Code",SCL_DRIVE_COMMANDS,false,false,false,true},
+
+
+	/// Registers Commands
+
+	{"CR","Compare Register",SCL_REGISTER_COMMANDS,false,false,false,false},
+	{"DR","Data Register for Capture",SCL_REGISTER_COMMANDS,false,false,false,false},
+	{"RC","Register Counter",SCL_REGISTER_COMMANDS,false,false,false,false},
+	{"RD","Register Decrement",SCL_REGISTER_COMMANDS,false,false,false,false},
+	{"RI","Register Increment",SCL_REGISTER_COMMANDS,false,false,false,false},
+	{"RM","Register Move",SCL_REGISTER_COMMANDS,false,false,false,false},
+	{"RR","Register Read",SCL_REGISTER_COMMANDS,false,false,false,false},
+	{"RW","Register Write",SCL_REGISTER_COMMANDS,false,false,false,false},
+	{"RX","Register Load (BUFFERED)",SCL_REGISTER_COMMANDS,false,false,false,false},
+	{"R+","Register Addition",SCL_REGISTER_COMMANDS,false,false,false,false},
+	{"R-","Register Subtraction",SCL_REGISTER_COMMANDS,false,false,false,false},
+	{"R*","Register Multiplication",SCL_REGISTER_COMMANDS,false,false,false,false},
+	{"R/","Register Division",SCL_REGISTER_COMMANDS,false,false,false,false},
+	{"R&","Register Logical AND",SCL_REGISTER_COMMANDS,false,false,false,false},
+	{"R|","Register Logical OR",SCL_REGISTER_COMMANDS,false,false,false,false},
+	{"TR","Test Register",SCL_REGISTER_COMMANDS,false,false,false,false},
+	{"TS","Time Stamp read",SCL_REGISTER_COMMANDS,false,false,false,false},
+
+
+	/// Immediate Commands
+
+	{"AL","Alarm Code",SCL_IMMEDIATE_COMMANDS,false,false,false,true},
+	{"AR","Alarm Reset (IMMEDIATE)",SCL_IMMEDIATE_COMMANDS,false,false,false,true},
+	{"BS","Buffer Status",SCL_IMMEDIATE_COMMANDS,false,false,false,true},
+	{"CE","Comm Error",SCL_IMMEDIATE_COMMANDS,false,false,false,true},
+	{"CS","Change Speed",SCL_IMMEDIATE_COMMANDS,false,false,false,true},
+	{"CT","Continue",SCL_IMMEDIATE_COMMANDS,false,false,false,true},
+	{"GC","Current Command",SCL_IMMEDIATE_COMMANDS,false,false,false,false},
+	{"IA","Immediate Analog value",SCL_IMMEDIATE_COMMANDS,false,false,false,true},
+	{"IC","Immediate Commanded Current",SCL_IMMEDIATE_COMMANDS,false,false,false,false},
+
+	{"ID","Immediate Distance request, in hex",SCL_IMMEDIATE_COMMANDS,false,false,false,true},
+	{"IE","Immediate Encoder request, in hex",SCL_IMMEDIATE_COMMANDS,false,false,false,true},
+	{"IF","Immediate Format",SCL_IMMEDIATE_COMMANDS,false,false,false,true},
+	{"IH","Immediate High output",SCL_IMMEDIATE_COMMANDS,false,false,false,true},
+	{"IL","Immediate Low output",SCL_IMMEDIATE_COMMANDS,false,false,false,true},
+	{"IO","Immediate output status request",SCL_IMMEDIATE_COMMANDS,false,false,false,true},
+	{"IP","Immediate position request, in hex",SCL_IMMEDIATE_COMMANDS,false,false,false,true},
+	{"IQ","Immediate Current value",SCL_IMMEDIATE_COMMANDS,false,false,false,false},
+	{"IS","Input Status request",SCL_IMMEDIATE_COMMANDS,false,false,false,true},
+	{"IT","Immediate Temperature",SCL_IMMEDIATE_COMMANDS,false,false,false,true},
+	{"IU","Immediate DC Bus Voltage",SCL_IMMEDIATE_COMMANDS,false,false,false,true},
+	{"IV","Immediate Velocity",SCL_IMMEDIATE_COMMANDS,false,false,false,true},
+	{"IX","Immediate Position Error",SCL_IMMEDIATE_COMMANDS,false,false,false,true},
+	{"MN","Model Number",SCL_IMMEDIATE_COMMANDS,false,false,false,true},
+	{"QE","Queue Execute",SCL_IMMEDIATE_COMMANDS,false,false,false,false},
+	{"QL","Queue Load",SCL_IMMEDIATE_COMMANDS,false,false,false,false},
+	{"QU","Queue Upload (to serial port)",SCL_IMMEDIATE_COMMANDS,false,false,false,false},
+	{"RE","Re-start or Reset",SCL_IMMEDIATE_COMMANDS,false,false,false,false},
+	{"RL","Register Load (IMMEDIATE)",SCL_IMMEDIATE_COMMANDS,false,false,false,true},
+	{"RS","Request Status",SCL_IMMEDIATE_COMMANDS,false,false,false,true},
+	{"RU","Register Upload",SCL_IMMEDIATE_COMMANDS,false,false,false,true},
+	{"RV","Revision Level request",SCL_IMMEDIATE_COMMANDS,false,false,false,true},
+	{"SC","Request Status in Hexadecimal",SCL_IMMEDIATE_COMMANDS,false,false,false,true},
+	{"SJ","Stop Jogging",SCL_IMMEDIATE_COMMANDS,false,false,false,true},
+	{"SK","Stop & Kill Buffer / Queue",SCL_IMMEDIATE_COMMANDS,false,false,false,true},
+	{"ST","Stop",SCL_IMMEDIATE_COMMANDS,false,false,false,true},
+	{"FC","SYMB",SCL_IMMEDIATE_COMMANDS,false,false,false,true},
+	{"FC","SYMB",SCL_IMMEDIATE_COMMANDS,false,false,false,true},
+
+	{NULL,NULL,SCL_MAX_TYPE,false,false,false,false},
+
+};
+
+
+
+static double CANISTER_RADIUS = 15.0; // centimeters.
+static double ARM_1_length = 24.0;  // centimeters
+static double ARM_2_length = 22.0; // centimeters
+ 
+static unsigned int CANISTER_STEP = 20000;
+static unsigned int ELBOW_STEP = 20000;
+
+
+/// note that the drivers think that counter clock wise CCK is negative.
+
+class Arm_Configuration {
+
+	public:
+
+		Arm_Configuration(void) {
+				/// 
+			_target_x = 0.0;
+			_target_y = 0.0;
+
+			_theta = 0.0; // desired rotation of the canister
+			_alpha = 0.0;
+			_base_radius = 0.0;
+
+			_canister_steps = CANISTER_STEP;
+			_elbow_steps = ELBOW_STEP;
+
+			_canister_delta = CANISTER_STEP/TWO_PI;
+			_elbow_delta = ELBOW_STEP/TWO_PI;
+
+			_canister_radial_delta = 1.0/_canister_delta;
+			_elbow_radial_delta = 1.0/_elbow_delta;
+
+			_canister_current_steps = 0;
+			_elbow_current_steps = 0;
+
+			_canister_prev_steps = 0;
+			_elbow_prev_steps = 0;
+
+			_use_relative = false;
+
+			_epsilon = 0.005;
+
+			_max_r = ARM_1_length + ARM_2_length + CANISTER_RADIUS;
+
+				///
+string config_report = "";
+config_report = "ARM CONFIGURATION:"; noisy_message(config_report);
+config_report = "ARM CANISTER_STEP:"; config_report += dto_str(_canister_steps); noisy_message(config_report);
+config_report = "ARM ELBOW_STEP:"; config_report += dto_str(_elbow_steps); noisy_message(config_report);
+config_report = "ARM CANISTER_STEP/TWO_PI:"; config_report += dto_str(_canister_delta); noisy_message(config_report);
+config_report = "ARM ELBOW_STEP/TWO_PI:"; config_report += dto_str(_elbow_delta); noisy_message(config_report);
+config_report = "ARM _epsilon:"; config_report += dto_str(_epsilon); noisy_message(config_report);
+config_report = "----------------------------"; noisy_message(config_report);
+				///
+
+		}
+
+		virtual ~Arm_Configuration(void) {
+		}
+
+
+	private:
+
+		double			_target_x;
+		double 			_target_y;
+
+		double 			_theta; // desired rotation of the canister
+		double			_alpha;
+		double			_base_radius;
+		double			_max_r;
+
+		double			_beta;
+
+		double 			_canister_steps;
+		double			_elbow_steps;
+		///
+		double 			_canister_delta;
+		double			_elbow_delta;
+
+		double			_epsilon;
+
+		int				_canister_current_steps;
+		int				_elbow_current_steps;
+		int				_canister_prev_steps;
+		int				_elbow_prev_steps;
+
+		bool			_use_relative;
+
+		double			_x_start_offset;
+		double			_y_start_offset;
+
+		double			_start_angle;
+		double			_start_radius;
+
+		int				_canister_origin_steps;
+		int				_elbow_origin_steps;
+
+		double			_canister_radial_delta;
+		double			_elbow_radial_delta;
+
+	public:
+
+		void			set_mininum_radius(double radius) {
+				///
+			_start_radius = radius;
+			_start_angle = 0.0;
+			set_target(_start_radius, 0.0);
+				///
+			_canister_origin_steps = _canister_current_steps;
+			_canister_origin_steps = _elbow_current_steps;
+		}
+
+		void			rotation_to_cartesian(double rad1,double rad2,double &x,double &y) {
+
+			double theta1 = rad1*_canister_radial_delta;
+			double theta2 = rad2*_elbow_radial_delta;
+
+			double gama = PI - theta1 - theta2;
+			double l1 = CANISTER_RADIUS + ARM_1_length;
+
+			double x1 = l1*cos(theta1);
+			double x2 = l1*sin(theta1);
+
+								// it should be that pos, neg rad1 and rad2 can lead to pos,neg angles for quadrant positioning.
+			double y1 = ARM_2_length*cos(gama);
+			double y2 = ARM_2_length*sin(gama);
+
+			x = y1 + x1;   /// add two vectors together...
+			y = y2 + x2;
+
+		}
+
+		double elbow_angle(void) {
+			return(_beta);
+		}
+
+		double base_angle(void) {
+			double angle = _alpha + _theta;
+			return(angle);
+		}
+
+
+		
+	protected:
+
+
+		void 			to_circular(void) {
+				///
+			_base_radius = sqrt(_target_x*_target_x + _target_y*_target_y);
+			if ( _base_radius == 0.0 ) { _theta = 0; return; }
+				///
+			double cos_theta = _target_x/_base_radius;
+			_theta = acos(cos_theta);
+				///
+			if ( _target_y < 0 ) {
+				_theta = TWO_PI - _theta;
+			}
+		}
+
+
+		// sides_to_angles
+		void sides_to_angles(double A, double B, double base,double &angle_AC,double &angle_BC,double &angle_AB) {
+			// assume base is the longest side.
+
+			double C = base; // for formality.
+			double x = (A*A - B*B + C*C)/(2*C);
+
+//cout << "X: " << x << " X/A: " <<  x/A << " (C-x)/B: " <<  (C-x)/B << endl;
+			angle_AC = acos(x/A);
+			angle_BC = acos((C-x)/B);
+			angle_AB = PI - angle_AC - angle_BC;
+
+cout << "angle_AC: " << angle_AC << " angle_BC: " <<  angle_BC << " angle_AB: " <<  angle_AB << endl;
+
+		}
+		
+
+
+		void isosolese_alpha_beta(double x, double y) {
+
+			double sin_alpha = (ARM_2_length/2.0)/(ARM_1_length + CANISTER_RADIUS);
+			double alpha_over_2 =  asin(sin_alpha);
+			
+			_alpha = 2*alpha_over_2;
+
+			_beta = PI/2 - alpha_over_2;
+
+		}
+
+		void isosolese_alpha_beta_mirror(double x, double y) {
+
+			// Take arm2 as the hypotenuse. Then half the arm length is adjacent to the elbow angle
+
+			double cos_beta_hat = ((ARM_1_length + CANISTER_RADIUS)/2.0)/ARM_2_length;
+			double beta_hat =  acos(cos_beta_hat);
+
+			_beta = beta_hat;
+			_alpha = _beta;
+
+		}
+
+		unsigned int	canister_steps(void) {
+
+			_canister_prev_steps = _canister_current_steps;
+	
+			double rotation = _alpha + _theta;
+			double fsteps = rotation*_canister_delta;
+
+			int steps = (int)(floor(fsteps));
+			_canister_current_steps = -steps;
+
+	cout << "canister_steps " << _canister_current_steps << " _theta: " << _theta << " _alpha: " << _alpha << " (_alpha + _theta): " << _alpha + _theta << endl;
+			return(steps);
+		}
+
+
+		unsigned int	elbow_steps(void) {
+
+			_elbow_prev_steps = _elbow_current_steps;
+
+			double rotation = _beta;
+			double fsteps = rotation*_elbow_delta;
+
+			int steps = (int)(floor(fsteps));
+			_elbow_current_steps = -steps;
+	cout << "elbow_steps " << _elbow_current_steps << " _beta: " << _beta << endl;
+			return(steps);
+		}
+		
+		void handle_point_out_of_range(void) {
+			///
+			_canister_current_steps = 0;// (int)(_canister_steps*_theta/PI);
+			_elbow_current_steps = 0; //(int)(ELBOW_STEP/2);
+			///
+		}
+
+	public:
+
+
+
+
+		void 		set_target(double x, double y) {
+
+			_target_x = x;
+			_target_y = y;
+
+					///------------------->>
+			to_circular();  // base radius and theta now express x, y in circular coordinates.
+					///------------------->>
+
+			if ( _start_radius > _base_radius ) {
+				_base_radius = _start_radius;
+			}
+
+				/// Determine the angles for running along the line...
+			if ( (_max_r - _epsilon) < _base_radius ) { /// out of range...
+
+				handle_point_out_of_range();
+				return;
+/*
+			} else if ( ( _base_radius > (ARM_1_length + CANISTER_RADIUS - _epsilon) ) //  note: (-,+)
+							&&  ( _base_radius < (ARM_1_length + CANISTER_RADIUS + _epsilon) ) ) { /// right triangle
+
+				isosolese_alpha_beta(x,y);
+
+			} else if ( ( _base_radius > (ARM_2_length  - _epsilon) ) &&  ( _base_radius < (ARM_2_length + _epsilon) ) ) { /// right triangle
+
+				isosolese_alpha_beta_mirror(x,y);
+*/
+			} else if ( _base_radius >= (ARM_1_length + CANISTER_RADIUS) ) { /// obtuse -- base is the big side -- so, it's base
+					// ARM_2 is always shorter than first part
+				double A = ARM_1_length + CANISTER_RADIUS;
+				double B = ARM_2_length;
+				double base = _base_radius;
+
+cout << "CASE A" << endl;
+				double angle_AC, angle_BC, angle_AB;
+
+				sides_to_angles(A,B,base,angle_AC,angle_BC,angle_AB);
+				_alpha = angle_AC;
+				_beta = angle_AB;
+					///
+			} else if ( _base_radius > ARM_2_length ) {   /// acute.  Longest side is ARM_1 next is vector length
+					///
+				double A = ARM_2_length;
+				double B = _base_radius;
+				double base = ARM_1_length + CANISTER_RADIUS;;
+
+cout << "CASE B" << endl;
+				double angle_AC, angle_BC, angle_AB;
+
+				sides_to_angles(A,B,base,angle_AC,angle_BC,angle_AB);
+				_alpha = angle_BC;
+				_beta = angle_AC;
+					///
+			} else {  // really the same as the last case.
+					///
+				double A = ARM_2_length;
+				double B = _base_radius;
+				double base = ARM_1_length + CANISTER_RADIUS;
+
+cout << "CASE C" << endl;
+
+				if ( ( A + B ) <= base ) {
+					_alpha = 0.0;
+					_beta = 0.0;
+				} else {
+					double angle_AC, angle_BC, angle_AB;
+
+					sides_to_angles(A,B,base,angle_AC,angle_BC,angle_AB);
+					_alpha = angle_BC;
+					_beta = angle_AC;
+				}
+					///
+			}
+
+		///------------------------------------------------>>
+			canister_steps();
+			elbow_steps();
+		///------------------------------------------------>>
+		}
+
+		int 			canister_current_steps(void) { return(_canister_current_steps); }
+		int 			elbow_current_steps(void)  { return(_elbow_current_steps); }
+
+		int				canister_relative_steps(void) { return(_canister_current_steps - _canister_prev_steps); }
+		int				elbow_relative_steps(void)  { return(_elbow_current_steps - _elbow_prev_steps); }
+
+
+		string			canister_current_steps_str(void) {
+							char buffer[64];
+							sprintf(buffer,"%d",_canister_current_steps);
+							string value = strdup(buffer);
+							return(value);
+						}
+
+		string			elbow_current_steps_str(void) {
+							char buffer[64];
+							sprintf(buffer,"%d",_elbow_current_steps);
+							string value = strdup(buffer);
+							return(value);
+						}
+
+
+
+		double			start_radius(void) { return(_start_radius); }
+		double			max_radius(void) { return(_max_r); }
+};
+
+
+
+
+
+/*
+
+		double			calc_alpha(double base, double l1, double l2) {
+			double denominator = 2*base*(l1);
+			double numerator = base*base + l2*l2 - l1*l1;
+			double cos_alpha = numerator/denominator;
+			_alpha = acos(cos_alpha);
+			return(_alpha);
+		}
+
+		double			calc_beta(double base, double l1, double l2) {
+			double denominator = 2*base*(l2);
+			double numerator = base*base + l2*l2 - l1*l1;
+			double cos_beta_hat = numerator/denominator;
+
+			double beta_hat = acos(cos_beta_hat);
+			_beta = PI - _alpha - beta_hat;
+			return(beta_hat);
+		}
+
+*/
+
+/*
+				calc_alpha(_base_radius, (ARM_1_length + CANISTER_RADIUS), ARM_2_length);
+				calc_beta(_base_radius, (ARM_1_length + CANISTER_RADIUS), ARM_2_length);
+*/
+
+
+
+/*
+				_alpha = 0.0;
+				_alpha = calc_beta((ARM_1_length + CANISTER_RADIUS), ARM_2_length, _base_radius);
+				_beta = calc_alpha((ARM_1_length + CANISTER_RADIUS), ARM_2_length, _base_radius);
+*/
+
+
+
+

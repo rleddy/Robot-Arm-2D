@@ -1,0 +1,385 @@
+ 
+
+
+
+
+void
+check_command_response_usage(string command) {
+	if ( command == "EG" ) {
+		sg_parse_results = true;
+		sg_save_last_parameter_request = command;
+	}
+}
+
+
+
+
+
+char *
+get_next_com(bool &commanding) {
+
+	if ( !(sg_short_command_list.size()) ) {
+
+		/// This is a test.
+		string typed_command;
+		cout << "command: ";
+		cout.flush();
+
+		cin >> typed_command;
+
+		if ( typed_command == "{" ) {
+
+			while ( typed_command != "}" ) {
+					///
+				if ( typed_command != "{" ) sg_short_command_list.push(typed_command);
+					///
+				cout << "add short command: ";
+				cout.flush();
+				cin >> typed_command;
+					///
+			}
+
+			typed_command = "n";
+
+		} else {
+
+			commanding = false;
+			check_command_response_usage(typed_command);
+
+		}
+
+		return(strdup(typed_command.c_str()));
+
+	} else {
+
+		string one_line = sg_short_command_list.front();
+		sg_short_command_list.pop();
+
+		return(strdup(one_line.c_str()));
+
+	}
+
+}
+
+
+
+string
+get_simulation_response(string next_com) {
+	string response = "response1234567890";
+
+/*
+	cout << "SIMULATION RESPONSE:";
+	cout.flush();
+
+	cin >> response;
+*/
+
+	if ( response == "." ) {
+		response = "";
+	}
+
+	return(response);
+}
+
+
+
+
+
+
+
+
+/// adds parameter updates to the pr
+void
+sink_drive_response(string motor_driver_response) {
+
+	cout << "-- " << motor_driver_response << endl;
+
+	if ( sg_parse_results == true ) {
+
+		char motor_id = motor_driver_response[0];
+
+
+		bool read_parameter = false;
+		string value = "";
+
+		if ( sg_save_last_parameter_request == motor_driver_response.substr(1,2) ) {
+			read_parameter = true;
+			value = motor_driver_response.substr(2);
+		}
+
+		if ( read_parameter ) {
+			MotorDriver *md = NULL;
+
+			if ( motor_id == '1' ) {
+				md = sg_motor_driver_array[0];
+			} else {
+				md = sg_motor_driver_array[1];
+			}
+
+			md->set_motor_parameter(sg_save_last_parameter_request,value);
+			sg_metrics_acquired = true;
+
+		}
+
+		sg_parse_results = false;
+
+	}
+
+}
+
+
+
+
+
+void
+run_commands(queue<string> *short_command_list,bool &going,SerialStream &serial_port) {
+
+	///----------->> COMMAND PROCESSING LOOP...
+	//
+	char *next_com = (char *)"";
+	bool commanding = true;
+		//
+	char next_byte;
+	//
+	while ( commanding ) {
+
+		if ( !short_command_list->empty() ) {
+
+			commanding = false;
+
+			///------------------------->>>
+			string next_com_str = short_command_list->front();
+			short_command_list->pop();
+			next_com = strdup(next_com_str.c_str());
+
+		} else {
+			next_com = get_next_com(commanding);
+		}
+			//
+
+		if ( next_com[0] == 'q' ) going = false;
+		if ( !sg_use_simulations ) {
+			if ( next_com[0] != 'n' )  {
+					///------------------------->>>
+				serial_port.write( next_com, strlen(next_com) ) ;
+				serial_port.flush();
+
+				///------------------->>
+				next_byte = '\r';
+				serial_port.write( &next_byte, 1 );
+				serial_port.flush();
+					///------------------------->>>
+			} else {
+				commanding = false;
+				///------------------->>
+				next_byte = '\r';
+				serial_port.write( &next_byte, 1 );
+				serial_port.flush();
+			}
+		}
+
+	}
+
+	if ( going ) {
+		//
+		// Keep reading data from serial port and print it to the screen.
+		//
+		string motor_driver_response = "";
+		unsigned int tries = 5;
+		do {
+
+			motor_driver_response = "";
+
+			if ( sg_use_simulations ) {
+				motor_driver_response = get_simulation_response(next_com);
+				tries = 0;
+			} else {
+					///--------------------->>
+				do {
+					if ( serial_port.rdbuf()->in_avail() == 0 ) break;
+					serial_port.get(next_byte);
+					motor_driver_response += next_byte;
+				} while ( next_byte != '\r' );
+
+				if ( motor_driver_response.size() > 0 ) {
+					tries = 0;
+					sink_drive_response(motor_driver_response);
+				} else {
+cout << ".";
+cout.flush();
+					sleeper(0,10000000L);
+				}
+
+					///-------------------------------->>>
+				next_byte = '\r';
+				serial_port.write( &next_byte, 1 );
+				serial_port.flush();
+
+			}
+
+		} while ( ( motor_driver_response.size() > 0 ) || ( tries-- > 0 ));
+
+	}
+
+}
+
+
+
+
+void
+run_commands2(queue<string> *short_command_list, SerialStream &serial_port, ParameterSink *ps = NULL) {
+
+	///----------->> COMMAND PROCESSING LOOP...
+	//
+	char *next_com = (char *)"";
+		//
+	char next_byte;
+	bool going = true;
+	//
+
+	if ( !short_command_list->empty() ) {
+		///------------------------->>>
+		string next_com_str = short_command_list->front();
+		short_command_list->pop();
+		next_com = strdup(next_com_str.c_str());
+
+	} else {
+		return;
+	}
+//cout << next_com << endl;
+		//
+
+	if ( next_com[0] == 'q' ) going = false;
+	if ( !sg_use_simulations ) {
+			///------------------------->>>
+		serial_port.write( next_com, strlen(next_com) ) ;
+		serial_port.flush();
+
+		///------------------->>
+		next_byte = '\r';
+		serial_port.write( &next_byte, 1 );
+		serial_port.flush();
+			///------------------------->>>
+	}
+
+
+	if ( going ) {
+		//
+		// Keep reading data from serial port and print it to the screen.
+		//
+		string motor_driver_response = "";
+		unsigned int tries = 10;
+		do {
+
+			motor_driver_response = "";
+
+			if ( sg_use_simulations ) {
+				motor_driver_response = get_simulation_response(next_com);
+				tries = 0;
+				break;
+			} else {
+					///--------------------->>
+				do {
+					if ( serial_port.rdbuf()->in_avail() == 0 ) break;
+					serial_port.get(next_byte);
+					motor_driver_response += next_byte;
+				} while ( next_byte != '\r' );
+
+				if ( motor_driver_response.size() > 0 ) {
+					tries = 0;
+					if ( ps != NULL ) {
+						ps->handle_command_response(motor_driver_response);				/// USE COMMAND RESPONSE TO MAKE DECISIONS...
+					}
+				} else {
+cout << ".";
+cout.flush();
+					sleeper(0,100000000L);
+				}
+
+					///-------------------------------->>>
+				next_byte = '\r';
+				serial_port.write( &next_byte, 1 );
+				serial_port.flush();
+
+			}
+
+		} while ( ( motor_driver_response.size() > 0 ) || ( tries-- > 0 ));
+
+	}
+
+}
+
+
+
+
+/// ==============================================================================================>>>>>>>>
+
+///  This is typically just a few commands.
+///  For instance it will be just a one or two FL commands in SCL. Or it will be an SC (status command).
+///  The response will be germain to just those commands.
+
+bool
+run_motor_command_list(queue<string> *short_command_list,SerialStream &serial_port, ParameterSink *ps) {
+
+	char *next_com = (char *)"";
+	char next_byte;
+		//
+
+	if ( short_command_list != NULL ) {
+
+		while ( !short_command_list->empty() ) {
+
+			///------------------------->>>
+			string next_com_str = short_command_list->front();
+			short_command_list->pop();
+
+			next_com = (char *)next_com_str.c_str();
+			///------------------------->>>
+			serial_port.write( next_com, next_com_str.size() ) ;
+			serial_port.flush();
+			///------------------->>
+			next_byte = '\r';
+			serial_port.write( &next_byte, 1 );
+			serial_port.flush();
+			///------------------------->>>
+
+		}
+
+		//
+		// Keep reading data from serial port and print it to the screen.
+		//
+		string motor_driver_response = "";
+		unsigned int tries = 5;
+		do {
+
+cout << ".";
+cout.flush();
+
+			motor_driver_response = "";
+				///--------------------->>
+			do {
+				if ( serial_port.rdbuf()->in_avail() == 0 ) break;
+				serial_port.get(next_byte);
+				motor_driver_response += next_byte;
+			} while ( next_byte != '\r' );
+
+			if ( motor_driver_response.size() > 0 ) {
+				tries = 0;
+				/// just stor up the the response for later figuring...
+				ps->handle_command_response(motor_driver_response);				/// USE COMMAND RESPONSE TO MAKE DECISIONS...
+			} else {
+				sleep(1);
+			}
+
+				///-------------------------------->>>
+			next_byte = '\r';
+			serial_port.write( &next_byte, 1 );
+			serial_port.flush();
+
+		} while ( ( motor_driver_response.size() > 0 ) || ( tries-- > 0 ));   /// Collect all the lines for the response.
+
+	}
+
+}
+
+

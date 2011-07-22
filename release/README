@@ -1,0 +1,114 @@
+﻿
+arm_2d
+----------------------------------------------------
+
+The main purpose of arm_2d is the control of a robot arm moving in one plane
+responding to sensor inputs and executing a simple plan of action.
+
+The arm is designed with a shoulder and an elbow controlled in a rotational
+fashion. The sensor for this first version is a pattern matching camera.
+
+
+Word On Hardware
+--------------------------------------------------------
+
+The frame of the robot was a home brew aluminum structure cut out by an old
+CNC machine. The machinist went to some trouble to provide a gear and tapered
+bearings as part of the shoulder. The  aluminum arm was made with sections cut
+out for a lite design. The shoulder motor was mounted on the side of the canister
+pointed toward the gearing. Some motors road on the apparatus. In particular,
+the elbow motor road on the shoulder and drove a shaft to the elbow.
+
+The actual structure of the robot frame cannot be given out. Furthermore,
+the program works as an abstraction over some family of machines.
+
+Of significance in this program is that the motors and controllers are from
+Applied Motion products in Watsonville, Ca. The motors were stepper motors that
+respond to motor controller signals derived from executing the Serial Command Language (SCL).
+The program provides a framework in order to package up SCL to send to the controllers.
+
+The pattern matching camera was on loan from Banner Engineering. This camera is trained
+off line on a set of patterns. And, customization program is used to set up communicators.
+The communicators in this case are TCP/IP servers, one for each pattern trained in the
+camera. The configuration is one that the a programmer determines. The Banner cameras
+have a collection of tools to allow the construction of pattern recognition metrics.
+And, there are tools to customize the reporting of certain metrics.
+
+
+Word On Software
+--------------------------------------------------------
+
+This is a C++ program from a first phase of development. The effort was not paid for,
+so it can be open source.
+
+This program interfaces both serial and tcp/ip interfaces. The choice of the interfaces
+has to do with the choice of the hardware.
+
+The motor controllers from Applied Motion products provide a serial interface. In this case
+the S5 was used with the Serial HUB. So, a decent serial program needed to be
+constructed for communicating with the motor controllers.
+
+The pattern matching camera has one TCP/IP server per pattern. So, this program is
+constructed with one client thread per known pattern. The list of patterns is defined
+in the initialization file.
+
+Basically, certain motion procedures exercise the motion of the motors. While the
+motors move and SCL runs, the camera is being engaged to look for patterns. So,
+the client threads respond to the pattern and provide a motion directive to the
+main thread which handles the serial interface to the controller.
+
+The motor controllers can run behind in communication because the motors run in
+real time. The motion of the apparatus is significantly slower than the program.
+So, certain schedules provide more synchronicity than others. One thing that is
+interesting, is that a longer motion, say a complete rotation with provide many
+more status messages than shorter motions. The program can end up handling a long
+delayed report of status after it is ready to do something else. So, one aspect of
+this exercise is to balance communication with motion.
+
+In this configuration, the camera is supposed to ride on the end of the arm. So,
+the image recognition coordinate system has to be translated to the shoulder
+coordinates. So, some basic matrix operations are provided.
+
+
+Build
+-------------------------------------------------------------------------
+
+The source and supporting elements are in the build directory.
+
+The build directory is governed by one generic make file. The make file template
+is created by whyglinux. Finding this make file resulted in a create saving of time.
+I have now used it in a collection of projects, and even utilized it in build environments.
+
+Looking at the include file line and the library line will show dependencies.
+
+The include file line can be identified with CPPFLAGS. You will see the following directories:
+
+	/telecom/commoncpp2-1.8.0/inc  -I../..telecom/libserial-0.6.0rc1/src/
+
+I created a telecom directory as sibling of the arm_2d.  I put useful open source libraries,
+built from source, in that directory. As you see, one is commoncpp2 and the other is libserial.
+These provide interfaces to communication methods. Commoncpp2 provides a cross platform library
+for threading, tcp/ip interfaces, and a number of other tools. This is not necessarily the
+solution sporting epoll, etc. But, it is quite good for a small number of client connections,
+or servers expecting a reasonable number of connections, such as an internal application server.
+The serial library is really helpful. I tried several and even made attempts at customizing minicom.
+Minicom helped verify communications with several serial interfaces and let me see their peculiarities.
+But, the same use of the serial interface has to be in the program. And, so it turns
+out, no two serial devices communicate in a similar way.
+
+The libraries are seen on the line identified with LDFLAGS . Some of the flags accommodate the use
+of the previously identified packages. The libraries  -lccgnu2 -lccext2 -lserial, are generated by
+the packages. The libraries -lrt -lpthread are posix libraries.  And, -ldl is for dynamic loading.
+
+
+So, if you have the libraries in place and you open a terminal in the 'build' directory, a
+sibling of 'common', You should be able to just type make.  Then you should be able to run the program: ./arm_2d
+
+At the moment, “make install” has no meaning. 
+
+TODO
+-------------------------------------------------------------------------
+
+Look at a separate file.
+
+
